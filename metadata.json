@@ -1,0 +1,6 @@
+{
+  "name": "Cricket Batsman Comfort Level Analyzer",
+  "description": "Calculate batting averages across bowling variations, visualize batsman comfort level matchup graphs, track dismissals, and export comprehensive cricket performance reports in PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
