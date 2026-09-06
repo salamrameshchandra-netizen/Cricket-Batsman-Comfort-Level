@@ -54,6 +54,7 @@ export const BOWLING_GLOSSARY: Record<string, { fullName: string; category: stri
 };
 
 export const REFERENCE_SHAHBAZ: BatsmanComfortReport = {
+  id: 'shahbaz-ref',
   batsmanName: 'SHAHBAZ',
   comfortTitle: 'Comfort Level',
   overallComfortScore: 68,
@@ -241,6 +242,7 @@ export const PRESET_PROFILES: PresetProfile[] = [
 ];
 
 export const EMPTY_BATSMAN_TEMPLATE: BatsmanComfortReport = {
+  id: 'empty-template',
   batsmanName: '',
   comfortTitle: 'Comfort Level',
   overallComfortScore: 0,
@@ -274,3 +276,135 @@ export const EMPTY_BATSMAN_TEMPLATE: BatsmanComfortReport = {
   ],
   detectedFromImage: false,
 };
+
+export function createNewBatsman(
+  name: string,
+  template: 'blank' | 'balanced' | 'pace_heavy' | 'spin_heavy' = 'blank'
+): BatsmanComfortReport {
+  const cleanName = name.trim() || 'New Batsman';
+  const id = `batsman-${Date.now()}`;
+  const now = Date.now();
+
+  if (template === 'blank') {
+    return {
+      ...EMPTY_BATSMAN_TEMPLATE,
+      id,
+      batsmanName: cleanName,
+      comfortSummary: `Fresh profile created for ${cleanName}. Enter match innings or bowling averages in the calculator to visualize matchup graphs.`,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  if (template === 'pace_heavy') {
+    return {
+      id,
+      batsmanName: cleanName,
+      comfortTitle: 'Comfort Level',
+      overallComfortScore: 78,
+      dominantBowlingType: 'RAFM (Right Arm Fast Medium)',
+      mostVulnerableBowlingType: 'RALS (Right Arm Leg Spin)',
+      comfortSummary: `${cleanName} dominates pace variations with heavy boundary scoring, but shows caution and lower strike-rate against wrist spin.`,
+      bowlingCategories: [
+        { code: 'RAFM', fullName: 'Right Arm Fast Medium', average: 58, comfortAssessment: 'Dominant', runs: 290, dismissals: 5, ballsFaced: 200, strikeRate: 145 },
+        { code: 'RALS', fullName: 'Right Arm Leg Spin', average: 22, comfortAssessment: 'Moderate', runs: 66, dismissals: 3, ballsFaced: 70, strikeRate: 94.3 },
+        { code: 'RAOS', fullName: 'Right Arm Off Spin', average: 36, comfortAssessment: 'Comfortable', runs: 108, dismissals: 3, ballsFaced: 90, strikeRate: 120 },
+        { code: 'LAFM', fullName: 'Left Arm Fast Medium', average: 48, comfortAssessment: 'Dominant', runs: 192, dismissals: 4, ballsFaced: 140, strikeRate: 137.1 },
+        { code: 'LAOD', fullName: 'Left Arm Orthodox Delivery', average: 40, comfortAssessment: 'Comfortable', runs: 120, dismissals: 3, ballsFaced: 100, strikeRate: 120 },
+      ],
+      dismissalsTable: [
+        { bowlerType: 'RAM', fullName: 'Right Arm Medium', count: 5 },
+        { bowlerType: 'LAM', fullName: 'Left Arm Medium', count: 4 },
+        { bowlerType: 'LAS', fullName: 'Left Arm Spin', count: 3 },
+        { bowlerType: 'RLB', fullName: 'Right Leg Break', count: 3 },
+        { bowlerType: 'ROB', fullName: 'Right Off Break', count: 3 },
+      ],
+      technicalInsights: [
+        `Tremendous back-foot punch and pull against express pace.`,
+        `Occasionally stretches early against dipping leg-spin deliveries.`,
+      ],
+      tacticalPlanAgainstBatsman: [
+        `Target with googlies and variations in flight from leg-spinners outside off-stump.`,
+      ],
+      batsmanCounterStrategy: [
+        `Hold back-foot depth against spinners and avoid early commitment down the pitch.`,
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  if (template === 'spin_heavy') {
+    return {
+      id,
+      batsmanName: cleanName,
+      comfortTitle: 'Comfort Level',
+      overallComfortScore: 81,
+      dominantBowlingType: 'RALS (Right Arm Leg Spin)',
+      mostVulnerableBowlingType: 'LAFM (Left Arm Fast Medium)',
+      comfortSummary: `${cleanName} is an elite player of spin across all angles, using quick footwork and sweep shots effectively.`,
+      bowlingCategories: [
+        { code: 'RAFM', fullName: 'Right Arm Fast Medium', average: 32, comfortAssessment: 'Moderate', runs: 160, dismissals: 5, ballsFaced: 130, strikeRate: 123 },
+        { code: 'RALS', fullName: 'Right Arm Leg Spin', average: 62, comfortAssessment: 'Dominant', runs: 248, dismissals: 4, ballsFaced: 170, strikeRate: 145.9 },
+        { code: 'RAOS', fullName: 'Right Arm Off Spin', average: 55, comfortAssessment: 'Dominant', runs: 220, dismissals: 4, ballsFaced: 160, strikeRate: 137.5 },
+        { code: 'LAFM', fullName: 'Left Arm Fast Medium', average: 21, comfortAssessment: 'Moderate', runs: 84, dismissals: 4, ballsFaced: 80, strikeRate: 105 },
+        { code: 'LAOD', fullName: 'Left Arm Orthodox Delivery', average: 50, comfortAssessment: 'Dominant', runs: 200, dismissals: 4, ballsFaced: 150, strikeRate: 133.3 },
+      ],
+      dismissalsTable: [
+        { bowlerType: 'RAM', fullName: 'Right Arm Medium', count: 5 },
+        { bowlerType: 'LAM', fullName: 'Left Arm Medium', count: 4 },
+        { bowlerType: 'LAS', fullName: 'Left Arm Spin', count: 4 },
+        { bowlerType: 'RLB', fullName: 'Right Leg Break', count: 4 },
+        { bowlerType: 'ROB', fullName: 'Right Off Break', count: 4 },
+      ],
+      technicalInsights: [
+        `Reads spin revolution quickly from the hand.`,
+        `Vulnerable to rapid left-arm pace angling back into right-hander pads.`,
+      ],
+      tacticalPlanAgainstBatsman: [
+        `Bring high-pace left-arm seamers around the wicket early in the spell.`,
+      ],
+      batsmanCounterStrategy: [
+        `Slightly close stance when facing left-arm pacers to minimize lbw risk.`,
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  // Balanced default
+  return {
+    id,
+    batsmanName: cleanName,
+    comfortTitle: 'Comfort Level',
+    overallComfortScore: 70,
+    dominantBowlingType: 'RAOS (Right Arm Off Spin)',
+    mostVulnerableBowlingType: 'LAFM (Left Arm Fast Medium)',
+    comfortSummary: `Balanced comfort profile for ${cleanName} with steady averages across pace and spin disciplines.`,
+    bowlingCategories: [
+      { code: 'RAFM', fullName: 'Right Arm Fast Medium', average: 38, comfortAssessment: 'Comfortable', runs: 190, dismissals: 5, ballsFaced: 150, strikeRate: 126.7 },
+      { code: 'RALS', fullName: 'Right Arm Leg Spin', average: 35, comfortAssessment: 'Comfortable', runs: 140, dismissals: 4, ballsFaced: 120, strikeRate: 116.7 },
+      { code: 'RAOS', fullName: 'Right Arm Off Spin', average: 44, comfortAssessment: 'Comfortable', runs: 176, dismissals: 4, ballsFaced: 130, strikeRate: 135.4 },
+      { code: 'LAFM', fullName: 'Left Arm Fast Medium', average: 28, comfortAssessment: 'Moderate', runs: 112, dismissals: 4, ballsFaced: 100, strikeRate: 112 },
+      { code: 'LAOD', fullName: 'Left Arm Orthodox Delivery', average: 42, comfortAssessment: 'Comfortable', runs: 168, dismissals: 4, ballsFaced: 130, strikeRate: 129.2 },
+    ],
+    dismissalsTable: [
+      { bowlerType: 'RAM', fullName: 'Right Arm Medium', count: 5 },
+      { bowlerType: 'LAM', fullName: 'Left Arm Medium', count: 4 },
+      { bowlerType: 'LAS', fullName: 'Left Arm Spin', count: 4 },
+      { bowlerType: 'RLB', fullName: 'Right Leg Break', count: 4 },
+      { bowlerType: 'ROB', fullName: 'Right Off Break', count: 4 },
+    ],
+    technicalInsights: [
+      `Solid orthodox technique with balanced weight distribution.`,
+    ],
+    tacticalPlanAgainstBatsman: [
+      `Enforce disciplined fifth-stump line to test patience.`,
+    ],
+    batsmanCounterStrategy: [
+      `Capitalize on loose deliveries while maintaining solid defensive discipline.`,
+    ],
+    createdAt: now,
+    updatedAt: now,
+  };
+}

@@ -17,6 +17,7 @@ export interface DismissalCountData {
 }
 
 export interface BatsmanComfortReport {
+  id?: string;
   batsmanName: string;
   comfortTitle: string; // usually "Comfort Level"
   bowlingCategories: BowlingMatchupData[];
@@ -29,6 +30,8 @@ export interface BatsmanComfortReport {
   tacticalPlanAgainstBatsman: string[];
   batsmanCounterStrategy: string[];
   detectedFromImage?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface PresetProfile {

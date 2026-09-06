@@ -11,12 +11,16 @@ import {
   Layers,
   HelpCircle,
   Trash2,
+  Save,
+  UserPlus,
 } from 'lucide-react';
 
 interface AverageCalculatorProps {
   currentReport: BatsmanComfortReport;
   onApplyCalculations: (newReport: BatsmanComfortReport) => void;
   onOpenGlossary?: (code: string) => void;
+  onSavePlayer?: (report: BatsmanComfortReport) => void;
+  onAddNewBatsman?: () => void;
 }
 
 interface DisciplineInputRow {
@@ -40,6 +44,8 @@ export const AverageCalculator: React.FC<AverageCalculatorProps> = ({
   currentReport,
   onApplyCalculations,
   onOpenGlossary,
+  onSavePlayer,
+  onAddNewBatsman,
 }) => {
   const [calcMode, setCalcMode] = useState<'matchups' | 'innings'>('matchups');
   const [batsmanName, setBatsmanName] = useState<string>(currentReport.batsmanName);
@@ -225,8 +231,8 @@ export const AverageCalculator: React.FC<AverageCalculatorProps> = ({
     );
   };
 
-  // Apply all calculations into main application report state
-  const handleApplyCalculations = () => {
+  // Build the complete BatsmanComfortReport from current calculator state
+  const buildCurrentReport = (): BatsmanComfortReport => {
     const bowlingCategories: BowlingMatchupData[] = disciplines.map((d) => {
       const avg = computeAverage(d.runs, d.dismissals);
       const sr = computeStrikeRate(d.runs, d.ballsFaced);
@@ -268,7 +274,8 @@ export const AverageCalculator: React.FC<AverageCalculatorProps> = ({
       Math.max(25, Math.round((totalAvg / (bowlingCategories.length * 50)) * 75 + 15))
     );
 
-    const newReport: BatsmanComfortReport = {
+    return {
+      id: currentReport.id || `batsman-${Date.now()}`,
       batsmanName: batsmanName.trim() || 'BATSMAN',
       comfortTitle: comfortTitle.trim() || 'Comfort Level',
       bowlingCategories,
@@ -298,11 +305,24 @@ export const AverageCalculator: React.FC<AverageCalculatorProps> = ({
         `Rotate strike into gaps to avoid getting pinned down by high-probability dismissal lines.`,
       ],
       detectedFromImage: false,
+      createdAt: currentReport.createdAt || Date.now(),
+      updatedAt: Date.now(),
     };
+  };
 
+  const handleApplyCalculations = () => {
+    const newReport = buildCurrentReport();
     onApplyCalculations(newReport);
     setShowAppliedToast(true);
     setTimeout(() => setShowAppliedToast(false), 3500);
+  };
+
+  const handleSavePlayer = () => {
+    const newReport = buildCurrentReport();
+    onApplyCalculations(newReport);
+    if (onSavePlayer) {
+      onSavePlayer(newReport);
+    }
   };
 
   // Reset to default sample
@@ -682,14 +702,41 @@ export const AverageCalculator: React.FC<AverageCalculatorProps> = ({
 
       {/* Primary Action Button: Calculate & Enter into Graphs */}
       <div className="mt-auto pt-3 border-t border-white/10 flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={handleApplyCalculations}
-          className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
-        >
-          <Sparkles className="w-4 h-4 text-amber-300" />
-          Calculate &amp; Enter Into Graphs &amp; Stats
-        </button>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={handleApplyCalculations}
+            className="flex-1 py-2.5 sm:py-3 px-3 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.99] whitespace-nowrap"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>Calculate &amp; Enter Into Graphs</span>
+          </button>
+
+          {onSavePlayer && (
+            <button
+              type="button"
+              onClick={handleSavePlayer}
+              className="py-2.5 sm:py-3 px-3.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-700/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95 whitespace-nowrap"
+              title="Save this player's data into roster"
+            >
+              <Save className="w-4 h-4 text-emerald-200" />
+              <span>Save Player</span>
+            </button>
+          )}
+
+          {onAddNewBatsman && (
+            <button
+              type="button"
+              onClick={onAddNewBatsman}
+              className="py-2.5 sm:py-3 px-3 rounded-xl font-bold text-xs sm:text-sm bg-[#1E293B] hover:bg-[#28354D] border border-white/15 text-slate-200 hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95 whitespace-nowrap"
+              title="Add a new batsman profile"
+            >
+              <UserPlus className="w-4 h-4 text-indigo-400" />
+              <span className="hidden sm:inline">+ New Batsman</span>
+              <span className="sm:hidden">+ New</span>
+            </button>
+          )}
+        </div>
 
         {/* Preset & Reset Shortcuts */}
         <div className="flex items-center justify-between text-xs text-slate-400 mt-2 flex-wrap gap-2">

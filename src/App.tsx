@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { REFERENCE_SHAHBAZ, EMPTY_BATSMAN_TEMPLATE } from './data/cricketPresets';
 import { BatsmanComfortReport } from './types';
 import { ComfortLevelChart } from './components/ComfortLevelChart';
@@ -7,6 +7,8 @@ import { MetricsCards } from './components/MetricsCards';
 import { TechnicalTacticsPanel } from './components/TechnicalTacticsPanel';
 import { DataEditorModal } from './components/DataEditorModal';
 import { GlossaryModal } from './components/GlossaryModal';
+import { NewBatsmanModal } from './components/NewBatsmanModal';
+import { BatsmanRosterBar } from './components/BatsmanRosterBar';
 import { exportReportToPdf } from './utils/pdfExport';
 import {
   Activity,
@@ -21,10 +23,40 @@ import {
   Loader2,
   RotateCcw,
   Trash2,
+  UserPlus,
+  Save,
 } from 'lucide-react';
 
+const STORAGE_KEY = 'cricket_batsman_roster_v1';
+
 export default function App() {
-  const [report, setReport] = useState<BatsmanComfortReport>(REFERENCE_SHAHBAZ);
+  // Roster persistence
+  const [roster, setRoster] = useState<BatsmanComfortReport[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading saved roster:', e);
+    }
+    return [{ ...REFERENCE_SHAHBAZ }];
+  });
+
+  const [activeBatsmanId, setActiveBatsmanId] = useState<string>(() => {
+    return roster[0]?.id || 'shahbaz-ref';
+  });
+
+  const [report, setReport] = useState<BatsmanComfortReport>(() => {
+    const active = roster.find((p) => p.id === activeBatsmanId);
+    return active ? { ...active } : { ...REFERENCE_SHAHBAZ };
+  });
+
+  const [isSaved, setIsSaved] = useState<boolean>(true);
+  const [isNewBatsmanModalOpen, setIsNewBatsmanModalOpen] = useState<boolean>(false);
   const [chartMode, setChartMode] = useState<'authentic' | 'interactive'>('authentic');
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState<boolean>(false);
@@ -32,6 +64,123 @@ export default function App() {
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
   const [pdfToast, setPdfToast] = useState<string | null>(null);
+
+  // Sync active report whenever activeBatsmanId changes
+  useEffect(() => {
+    const active = roster.find((p) => p.id === activeBatsmanId);
+    if (active) {
+      setReport({ ...active });
+      setIsSaved(true);
+    }
+  }, [activeBatsmanId]);
+
+  // Helper to persist roster into localStorage
+  const persistRoster = (newRoster: BatsmanComfortReport[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newRoster));
+    } catch (e) {
+      console.error('Failed to save roster to localStorage:', e);
+    }
+  };
+
+  // Save Current Batsman to Roster
+  const handleSaveCurrentPlayer = (reportToSave: BatsmanComfortReport = report) => {
+    const timestamped: BatsmanComfortReport = {
+      ...reportToSave,
+      id: reportToSave.id || `batsman-${Date.now()}`,
+      updatedAt: Date.now(),
+    };
+
+    setRoster((prev) => {
+      const index = prev.findIndex((p) => p.id === timestamped.id);
+      let updated: BatsmanComfortReport[];
+      if (index >= 0) {
+        updated = [...prev];
+        updated[index] = timestamped;
+      } else {
+        updated = [...prev, timestamped];
+      }
+      persistRoster(updated);
+      return updated;
+    });
+
+    setReport(timestamped);
+    setActiveBatsmanId(timestamped.id || '');
+    setIsSaved(true);
+    setPdfToast(`Saved "${timestamped.batsmanName || 'Batsman'}" to player roster!`);
+    setTimeout(() => setPdfToast(null), 3500);
+  };
+
+  // Add New Batsman
+  const handleAddNewBatsman = (
+    newBatsman: BatsmanComfortReport,
+    saveCurrentFirst: boolean
+  ) => {
+    setRoster((prev) => {
+      let updated = [...prev];
+
+      // Save existing player first if requested
+      if (saveCurrentFirst) {
+        const currentSaved: BatsmanComfortReport = {
+          ...report,
+          id: report.id || `batsman-${Date.now()}`,
+          updatedAt: Date.now(),
+        };
+        const currentIndex = updated.findIndex((p) => p.id === currentSaved.id);
+        if (currentIndex >= 0) {
+          updated[currentIndex] = currentSaved;
+        } else {
+          updated.push(currentSaved);
+        }
+      }
+
+      // Add the new player
+      updated = [...updated, newBatsman];
+      persistRoster(updated);
+      return updated;
+    });
+
+    setActiveBatsmanId(newBatsman.id || '');
+    setReport(newBatsman);
+    setIsSaved(true);
+    setPdfToast(
+      saveCurrentFirst
+        ? `Added "${newBatsman.batsmanName}" and saved previous player!`
+        : `Added new batsman "${newBatsman.batsmanName}"!`
+    );
+    setTimeout(() => setPdfToast(null), 3500);
+  };
+
+  // Switch Active Player
+  const handleSelectPlayer = (id: string) => {
+    const target = roster.find((p) => p.id === id);
+    if (target) {
+      setActiveBatsmanId(id);
+      setReport({ ...target });
+      setIsSaved(true);
+      setPdfToast(`Switched active batsman to "${target.batsmanName || 'Player'}"`);
+      setTimeout(() => setPdfToast(null), 2500);
+    }
+  };
+
+  // Delete Player from Roster
+  const handleDeletePlayer = (id: string) => {
+    setRoster((prev) => {
+      const filtered = prev.filter((p) => p.id !== id);
+      const nextRoster = filtered.length > 0 ? filtered : [{ ...REFERENCE_SHAHBAZ }];
+      persistRoster(nextRoster);
+
+      if (activeBatsmanId === id) {
+        const nextActive = nextRoster[0];
+        setActiveBatsmanId(nextActive.id || '');
+        setReport({ ...nextActive });
+      }
+      return nextRoster;
+    });
+
+    setPdfToast('Batsman removed from roster.');
+    setTimeout(() => setPdfToast(null), 3000);
+  };
 
   const handleOpenGlossaryForCode = (code: string) => {
     setSelectedGlossaryCode(code);
@@ -52,7 +201,9 @@ export default function App() {
         theme: 'dark',
       });
       if (success) {
-        setPdfToast(`Saved ${(report.batsmanName || 'Batsman').replace(/[^a-zA-Z0-9_-]/g, '_')}_Comfort_Level_Graph.pdf`);
+        setPdfToast(
+          `Saved ${(report.batsmanName || 'Batsman').replace(/[^a-zA-Z0-9_-]/g, '_')}_Comfort_Level_Graph.pdf`
+        );
       } else {
         setPdfToast('Print dialog opened for Graph PDF creation');
       }
@@ -68,12 +219,14 @@ export default function App() {
 
   const handleResetToDefault = () => {
     setReport(REFERENCE_SHAHBAZ);
+    setIsSaved(false);
     setPdfToast('Reloaded Shahbaz reference sample.');
     setTimeout(() => setPdfToast(null), 3000);
   };
 
   const handleDeletePreloadedData = () => {
     setReport(EMPTY_BATSMAN_TEMPLATE);
+    setIsSaved(false);
     setPdfToast('Preloaded data deleted. All graphs & fields cleared.');
     setTimeout(() => setPdfToast(null), 3500);
   };
@@ -132,36 +285,49 @@ export default function App() {
               </button>
             </div>
 
+            {/* Quick Save Player in Header */}
+            <button
+              type="button"
+              onClick={() => handleSaveCurrentPlayer(report)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/30 rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-700/20 active:scale-95"
+              title={`Save "${report.batsmanName || 'Player'}" to saved roster`}
+            >
+              <Save className="w-3.5 h-3.5 text-emerald-100" />
+              <span>Save Player</span>
+            </button>
+
+            {/* Quick Add Batsman in Header */}
+            <button
+              type="button"
+              onClick={() => setIsNewBatsmanModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 border border-white/20 rounded-xl transition-all cursor-pointer shadow-md shadow-indigo-600/20 active:scale-95"
+              title="Add a new batsman profile"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-indigo-100" />
+              <span className="hidden sm:inline">+ New Batsman</span>
+              <span className="sm:hidden">+ New</span>
+            </button>
+
             {/* Export Graph Section Only (PDF) */}
             <button
               type="button"
               onClick={handleExportPdf}
               disabled={isExportingPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 border border-white/15 rounded-xl transition-all cursor-pointer shadow-md shadow-indigo-600/20 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-white bg-[#1E293B] hover:bg-[#28354D] border border-white/15 rounded-xl transition-all cursor-pointer shadow-sm disabled:opacity-50"
               title="Export only the Graph Section to PDF"
             >
               {isExportingPdf ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                  <span className="hidden sm:inline">Exporting...</span>
+                  <span className="hidden md:inline">Exporting...</span>
                 </>
               ) : (
                 <>
-                  <FileDown className="w-3.5 h-3.5 text-indigo-200" />
-                  <span className="hidden sm:inline">Export Graph (PDF)</span>
-                  <span className="sm:hidden">Graph PDF</span>
+                  <FileDown className="w-3.5 h-3.5 text-indigo-300" />
+                  <span className="hidden md:inline">Export Graph (PDF)</span>
+                  <span className="md:hidden">PDF</span>
                 </>
               )}
-            </button>
-
-            {/* Delete Preloaded Data Quick Button */}
-            <button
-              type="button"
-              onClick={handleDeletePreloadedData}
-              className="p-2 text-rose-400 hover:text-rose-200 bg-[#0A0F1E] hover:bg-rose-950/40 border border-rose-500/20 rounded-xl transition-all cursor-pointer"
-              title="Delete preloaded data (clear all fields & graphs)"
-            >
-              <Trash2 className="w-4 h-4" />
             </button>
 
             {/* Glossary Button */}
@@ -191,7 +357,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleShare}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-[#1E293B] border border-white/10 hover:border-white/20 rounded-xl transition-all cursor-pointer shadow-sm"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-[#1E293B] border border-white/10 hover:border-white/20 rounded-xl transition-all cursor-pointer shadow-sm"
             >
               {copiedLink ? (
                 <>
@@ -211,16 +377,36 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
-        <div className="flex flex-col gap-6">
-          {/* Top Banner with Batsman Profile Context */}
+        <div className="flex flex-col gap-5">
+          {/* Batsman Roster Toolbar: Switch Batsmen, Add New, Save Active */}
+          <BatsmanRosterBar
+            roster={roster}
+            activeId={activeBatsmanId}
+            currentReport={report}
+            onSelectPlayer={handleSelectPlayer}
+            onSaveCurrentPlayer={() => handleSaveCurrentPlayer(report)}
+            onOpenNewBatsmanModal={() => setIsNewBatsmanModalOpen(true)}
+            onDeletePlayer={handleDeletePlayer}
+            isSaved={isSaved}
+          />
+
+          {/* Top Banner with Active Batsman Profile Context */}
           <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#111C38] via-[#162248] to-[#111C38] border border-white/10 text-white shadow-lg shadow-black/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 text-xs font-semibold uppercase tracking-wider mb-2">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 Batsman Matchup Profiling &amp; Analytics
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-['Space_Grotesk']">
-                {report.batsmanName || 'ENTER BATSMAN NAME'} — {report.comfortTitle || 'Comfort Level'}
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-['Space_Grotesk'] flex items-center gap-2 flex-wrap">
+                <span>{report.batsmanName || 'ENTER BATSMAN NAME'}</span>
+                <span className="text-slate-400 font-normal text-lg sm:text-xl">
+                  — {report.comfortTitle || 'Comfort Level'}
+                </span>
+                {!isSaved && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+                    Unsaved Edits
+                  </span>
+                )}
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
                 Calculated batting average across Right-Arm &amp; Left-Arm pace and spin variations,
@@ -228,48 +414,49 @@ export default function App() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 self-stretch sm:self-auto justify-end flex-wrap">
+            <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end flex-wrap">
+              {/* Save Current Player Button */}
+              <button
+                type="button"
+                onClick={() => handleSaveCurrentPlayer(report)}
+                className="px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/30 rounded-xl shadow-md shadow-emerald-700/20 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 active:scale-95"
+                title={`Save current edits for ${report.batsmanName || 'Player'}`}
+              >
+                <Save className="w-3.5 h-3.5" />
+                Save Player
+              </button>
+
+              {/* Add New Batsman Button */}
+              <button
+                type="button"
+                onClick={() => setIsNewBatsmanModalOpen(true)}
+                className="px-3.5 py-2 text-xs font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-white/20 rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 active:scale-95"
+                title="Add a new batsman profile"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                + Add New Batsman
+              </button>
+
               {/* Option to Delete Preloaded Data */}
               <button
                 type="button"
                 onClick={handleDeletePreloadedData}
-                className="px-3.5 py-2 text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 hover:border-rose-500/40 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+                className="px-3 py-2 text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 hover:border-rose-500/40 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5"
                 title="Delete preloaded data and start with clean inputs"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                Delete Preloaded Data
+                Clear Data
               </button>
 
               {/* Option to Reload Reference Sample */}
               <button
                 type="button"
                 onClick={handleResetToDefault}
-                className="px-3.5 py-2 text-xs font-semibold bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white border border-white/15 hover:border-white/25 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+                className="px-3 py-2 text-xs font-semibold bg-white/10 hover:bg-white/15 text-slate-200 hover:text-white border border-white/15 hover:border-white/25 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5"
                 title="Reload default Shahbaz sample profile"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                Reload Sample
-              </button>
-
-              {/* Export only Graph Section to PDF */}
-              <button
-                type="button"
-                onClick={handleExportPdf}
-                disabled={isExportingPdf}
-                className="px-4 py-2 text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-white/20 rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 disabled:opacity-50"
-                title="Export only the Graph Section to PDF"
-              >
-                {isExportingPdf ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <FileDown className="w-3.5 h-3.5" />
-                    Export Graph (PDF)
-                  </>
-                )}
+                Reset Sample
               </button>
             </div>
           </div>
@@ -313,8 +500,13 @@ export default function App() {
             <div className="lg:col-span-5 flex flex-col gap-4">
               <AverageCalculator
                 currentReport={report}
-                onApplyCalculations={(newReport) => setReport(newReport)}
+                onApplyCalculations={(newReport) => {
+                  setReport(newReport);
+                  setIsSaved(false);
+                }}
                 onOpenGlossary={handleOpenGlossaryForCode}
+                onSavePlayer={(newReport) => handleSaveCurrentPlayer(newReport)}
+                onAddNewBatsman={() => setIsNewBatsmanModalOpen(true)}
               />
             </div>
           </div>
@@ -328,24 +520,32 @@ export default function App() {
       <footer className="bg-[#0A0F1E] border-t border-white/10 mt-12 py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>
-            Cricket Batsman Comfort Level Analyzer — Average Calculation, Graph Visualization &amp; PDF Reporting
+            Cricket Batsman Comfort Level Analyzer — Multi-Batsman Roster, Average Calculation &amp; PDF Reporting
           </p>
           <div className="flex items-center gap-4 text-[11px] flex-wrap justify-center">
             <button
               type="button"
-              onClick={handleExportPdf}
-              className="text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors flex items-center gap-1 font-semibold"
+              onClick={() => handleSaveCurrentPlayer(report)}
+              className="text-emerald-400 hover:text-emerald-300 cursor-pointer transition-colors flex items-center gap-1 font-semibold"
             >
-              <FileDown className="w-3 h-3" />
-              Download Graph (PDF)
+              <Save className="w-3 h-3" />
+              Save Active Player
             </button>
             <button
               type="button"
-              onClick={handleDeletePreloadedData}
-              className="text-rose-400 hover:text-rose-300 cursor-pointer transition-colors flex items-center gap-1"
+              onClick={() => setIsNewBatsmanModalOpen(true)}
+              className="text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors flex items-center gap-1 font-semibold"
             >
-              <Trash2 className="w-3 h-3" />
-              Delete Preloaded Data
+              <UserPlus className="w-3 h-3" />
+              Add Batsman
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="text-slate-400 hover:text-slate-200 cursor-pointer transition-colors flex items-center gap-1"
+            >
+              <FileDown className="w-3 h-3" />
+              Download Graph (PDF)
             </button>
             <button
               type="button"
@@ -371,7 +571,7 @@ export default function App() {
       {/* Toast Notification */}
       {pdfToast && (
         <div className="fixed bottom-6 right-6 z-50 p-4 bg-[#0F172A] border border-indigo-500/40 text-white rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
             <Check className="w-4 h-4" />
           </div>
           <div>
@@ -381,14 +581,27 @@ export default function App() {
         </div>
       )}
 
-      {/* Modals */}
+      {/* Add New Batsman Modal */}
+      <NewBatsmanModal
+        isOpen={isNewBatsmanModalOpen}
+        onClose={() => setIsNewBatsmanModalOpen(false)}
+        onAddBatsman={handleAddNewBatsman}
+        currentBatsmanName={report.batsmanName}
+        currentBatsmanData={report}
+      />
+
+      {/* Manual Data Editor Modal */}
       <DataEditorModal
         report={report}
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
-        onSave={(updated) => setReport(updated)}
+        onSave={(updated) => {
+          setReport(updated);
+          setIsSaved(false);
+        }}
       />
 
+      {/* Bowling Glossary Modal */}
       <GlossaryModal
         isOpen={isGlossaryOpen}
         onClose={() => setIsGlossaryOpen(false)}
